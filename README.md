@@ -6,9 +6,7 @@ A modern, interactive Bible study application built with Next.js. This app allow
 
 ## Demo
 
-https://github.com/user-attachments/assets/app-demo.mov
-
-<video src="assets/app-demo.mov" controls></video>
+![Bible Notes App Demo](assets/app-demo.webp)
 
 ## Features
 
