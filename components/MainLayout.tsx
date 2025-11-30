@@ -21,7 +21,7 @@ function MainLayoutContent({
                 "transition-all duration-300 ease-in-out overflow-hidden border-r border-sidebar-border bg-sidebar-bg h-screen sticky top-0",
                 isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 border-none"
             )}>
-                <div className="w-64">
+                <div className="w-64 h-full">
                     {sidebar}
                 </div>
             </div>
