@@ -10,10 +10,16 @@ interface LayoutContextType {
     isNotePanelOpen: boolean;
     noteTitle: string;
     noteContent: string;
+    noteEvent: string;
+    notePreacher: string;
     loadedNoteId: number | null;
     theme: Theme;
+    obsidianConfig: { apiKey: string; port: string; enabled: boolean };
+    isSettingsOpen: boolean;
     setNoteTitle: (title: string) => void;
     setNoteContent: (content: string) => void;
+    setNoteEvent: (event: string) => void;
+    setNotePreacher: (preacher: string) => void;
     appendVerseReference: (reference: string) => void;
     toggleSidebar: () => void;
     setSidebarOpen: (isOpen: boolean) => void;
@@ -21,6 +27,8 @@ interface LayoutContextType {
     closeNotePanel: () => void;
     loadNote: (id: number) => Promise<void>;
     setTheme: (theme: Theme) => void;
+    setObsidianConfig: (config: { apiKey: string; port: string; enabled: boolean }) => void;
+    setIsSettingsOpen: (isOpen: boolean) => void;
 }
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
@@ -30,17 +38,30 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     const [isNotePanelOpen, setIsNotePanelOpen] = useState(false);
     const [noteTitle, setNoteTitle] = useState("");
     const [noteContent, setNoteContent] = useState("");
+    const [noteEvent, setNoteEvent] = useState("");
+    const [notePreacher, setNotePreacher] = useState("");
     const [loadedNoteId, setLoadedNoteId] = useState<number | null>(null);
     const [theme, setThemeState] = useState<Theme>('system');
+    const [obsidianConfig, setObsidianConfigState] = useState<{ apiKey: string; port: string; enabled: boolean }>({ apiKey: '', port: '27123', enabled: true });
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
     const setSidebarOpen = (isOpen: boolean) => setIsSidebarOpen(isOpen);
 
-    // Load theme from localStorage on mount
+    // Load theme and obsidian config from localStorage on mount
     useEffect(() => {
         const savedTheme = localStorage.getItem('theme') as Theme | null;
         if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
             setThemeState(savedTheme);
+        }
+
+        const savedObsidianConfig = localStorage.getItem('obsidianConfig');
+        if (savedObsidianConfig) {
+            try {
+                setObsidianConfigState(JSON.parse(savedObsidianConfig));
+            } catch (e) {
+                console.error("Failed to parse obsidian config", e);
+            }
         }
     }, []);
 
@@ -76,6 +97,11 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('theme', newTheme);
     };
 
+    const setObsidianConfig = (config: { apiKey: string; port: string; enabled: boolean }) => {
+        setObsidianConfigState(config);
+        localStorage.setItem('obsidianConfig', JSON.stringify(config));
+    };
+
     const openNotePanel = () => {
         setIsNotePanelOpen(true);
         setIsSidebarOpen(false); // Auto-collapse sidebar
@@ -86,6 +112,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setLoadedNoteId(null);
         setNoteTitle("");
         setNoteContent("");
+        setNoteEvent("");
+        setNotePreacher("");
     };
 
     const appendVerseReference = (reference: string) => {
@@ -98,6 +126,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             setLoadedNoteId(id);
             setNoteTitle(result.note.title);
             setNoteContent(result.note.content);
+            setNoteEvent(result.note.event || "");
+            setNotePreacher(result.note.preacher || "");
             setIsNotePanelOpen(true);
             setIsSidebarOpen(false);
         }
@@ -109,17 +139,25 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             isNotePanelOpen,
             noteTitle,
             noteContent,
+            noteEvent,
+            notePreacher,
             loadedNoteId,
             theme,
+            obsidianConfig,
+            isSettingsOpen,
             setNoteTitle,
             setNoteContent,
+            setNoteEvent,
+            setNotePreacher,
             appendVerseReference,
             toggleSidebar,
             setSidebarOpen,
             openNotePanel,
             closeNotePanel,
             loadNote,
-            setTheme
+            setTheme,
+            setObsidianConfig,
+            setIsSettingsOpen
         }}>
             {children}
         </LayoutContext.Provider>

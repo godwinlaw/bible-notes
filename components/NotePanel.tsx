@@ -1,9 +1,10 @@
 "use client";
 
-import { X, Save } from "lucide-react";
-import { useState, useTransition } from "react";
-import { saveNote } from "@/lib/actions";
+import { X, Save, FileUp, ChevronDown, User, Check } from "lucide-react";
+import { useState, useTransition, useEffect, useRef } from "react";
+import { saveNote, getPreachers } from "@/lib/actions";
 import { useLayoutContext } from "./LayoutContext";
+import { exportToObsidian } from "@/lib/obsidian";
 
 interface NotePanelProps {
     isOpen: boolean;
@@ -11,9 +12,42 @@ interface NotePanelProps {
 }
 
 export function NotePanel({ isOpen, onClose }: NotePanelProps) {
-    const { noteTitle, noteContent, loadedNoteId, setNoteTitle, setNoteContent } = useLayoutContext();
+    const { noteTitle, noteContent, noteEvent, notePreacher, loadedNoteId, setNoteTitle, setNoteContent, setNoteEvent, setNotePreacher, obsidianConfig } = useLayoutContext();
     const [isPending, startTransition] = useTransition();
     const [saveStatus, setSaveStatus] = useState<string | null>(null);
+    const [isExporting, setIsExporting] = useState(false);
+    const [preachers, setPreachers] = useState<string[]>([]);
+
+    // Dropdown states
+    const [isEventOpen, setIsEventOpen] = useState(false);
+    const [isPreacherOpen, setIsPreacherOpen] = useState(false);
+
+    const eventRef = useRef<HTMLDivElement>(null);
+    const preacherRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            getPreachers().then(result => {
+                if (result.success && result.preachers) {
+                    setPreachers(result.preachers);
+                }
+            });
+        }
+    }, [isOpen]);
+
+    // Click outside handler
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (eventRef.current && !eventRef.current.contains(event.target as Node)) {
+                setIsEventOpen(false);
+            }
+            if (preacherRef.current && !preacherRef.current.contains(event.target as Node)) {
+                setIsPreacherOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     if (!isOpen) return null;
 
@@ -22,14 +56,23 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
             const result = await saveNote({
                 title: noteTitle,
                 content: noteContent,
+                event: noteEvent,
+                preacher: notePreacher,
                 id: loadedNoteId || undefined
             });
             if (result.success) {
                 setSaveStatus(`Note ${loadedNoteId ? 'updated' : 'saved'} successfully!`);
+                // Refresh preachers list in case a new one was added
+                getPreachers().then(res => {
+                    if (res.success && res.preachers) setPreachers(res.preachers);
+                });
+
                 setTimeout(() => {
                     setSaveStatus(null);
                     setNoteTitle("");
                     setNoteContent("");
+                    setNoteEvent("");
+                    setNotePreacher("");
                     onClose();
                 }, 1000);
             } else {
@@ -39,11 +82,41 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
         });
     };
 
+    const handleExport = async () => {
+        if (!noteTitle.trim()) {
+            setSaveStatus("Note must have a title to export");
+            setTimeout(() => setSaveStatus(null), 3000);
+            return;
+        }
+
+        setIsExporting(true);
+        const result = await exportToObsidian(noteTitle, noteContent, obsidianConfig);
+        setIsExporting(false);
+
+        setSaveStatus(result.message);
+        setTimeout(() => setSaveStatus(null), 5000);
+    };
+
+    const filteredPreachers = preachers.filter(p =>
+        p.toLowerCase().includes(notePreacher.toLowerCase())
+    );
+
     return (
         <div className="w-1/3 border-l border-border bg-background h-full flex flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between">
                 <h2 className="font-semibold">{loadedNoteId ? 'Edit Note' : 'New Note'}</h2>
                 <div className="flex items-center gap-2">
+                    {obsidianConfig.enabled && (
+                        <button
+                            onClick={handleExport}
+                            disabled={isExporting || !noteTitle.trim()}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Export to Obsidian"
+                        >
+                            <FileUp className="w-4 h-4" />
+                            {isExporting ? "Exporting..." : "Export"}
+                        </button>
+                    )}
                     <button
                         onClick={handleSave}
                         disabled={isPending || !noteTitle.trim()}
@@ -58,18 +131,98 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
                 </div>
             </div>
             {saveStatus && (
-                <div className={`px-4 py-2 text-sm ${saveStatus.includes("success") ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
+                <div className={`px-4 py-2 text-sm ${saveStatus.includes("success") ? "bg-green-500/10 text-green-500" : saveStatus.includes("Failed") || saveStatus.includes("missing") ? "bg-red-500/10 text-red-500" : "bg-blue-500/10 text-blue-500"}`}>
                     {saveStatus}
                 </div>
             )}
             <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
-                <input
-                    type="text"
-                    value={noteTitle}
-                    onChange={(e) => setNoteTitle(e.target.value)}
-                    placeholder="Note title..."
-                    className="w-full px-3 py-2 bg-transparent border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                <div className="flex flex-col gap-3">
+                    <input
+                        type="text"
+                        value={noteTitle}
+                        onChange={(e) => setNoteTitle(e.target.value)}
+                        placeholder="Note title..."
+                        className="w-full px-3 py-2 bg-transparent border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary font-medium text-lg"
+                    />
+                    <div className="flex gap-2">
+                        {/* Custom Event Dropdown */}
+                        <div className="relative w-1/3" ref={eventRef}>
+                            <div
+                                onClick={() => setIsEventOpen(!isEventOpen)}
+                                className="w-full pl-3 pr-8 py-2 bg-transparent border border-border rounded-md cursor-pointer flex items-center justify-between hover:bg-accent/50 transition-colors"
+                            >
+                                <span className={`text-sm ${!noteEvent ? 'text-muted-foreground' : ''}`}>
+                                    {noteEvent || "Event"}
+                                </span>
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            </div>
+
+                            {isEventOpen && (
+                                <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md shadow-md z-[9999] py-1">
+                                    {['MBS', 'SWS', 'ATR'].map((event) => (
+                                        <div
+                                            key={event}
+                                            onClick={() => {
+                                                setNoteEvent(event);
+                                                setIsEventOpen(false);
+                                            }}
+                                            className="px-3 py-1.5 text-sm hover:bg-accent cursor-pointer flex items-center justify-between"
+                                        >
+                                            {event}
+                                            {noteEvent === event && <Check className="w-3 h-3 text-primary" />}
+                                        </div>
+                                    ))}
+                                    {noteEvent && (
+                                        <div
+                                            onClick={() => {
+                                                setNoteEvent("");
+                                                setIsEventOpen(false);
+                                            }}
+                                            className="px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent cursor-pointer border-t border-border mt-1"
+                                        >
+                                            Clear
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Custom Preacher Combobox */}
+                        <div className="relative flex-1" ref={preacherRef}>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={notePreacher}
+                                    onChange={(e) => {
+                                        setNotePreacher(e.target.value);
+                                        setIsPreacherOpen(true);
+                                    }}
+                                    onFocus={() => setIsPreacherOpen(true)}
+                                    placeholder="Preacher..."
+                                    className="w-full pl-3 pr-8 py-2 bg-transparent border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                                />
+                                <User className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                            </div>
+
+                            {isPreacherOpen && filteredPreachers.length > 0 && (
+                                <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md shadow-md z-[9999] py-1 max-h-48 overflow-y-auto">
+                                    {filteredPreachers.map((preacher) => (
+                                        <div
+                                            key={preacher}
+                                            onClick={() => {
+                                                setNotePreacher(preacher);
+                                                setIsPreacherOpen(false);
+                                            }}
+                                            className="px-3 py-1.5 text-sm hover:bg-accent cursor-pointer"
+                                        >
+                                            {preacher}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
                 <textarea
                     value={noteContent}
                     onChange={(e) => setNoteContent(e.target.value)}
