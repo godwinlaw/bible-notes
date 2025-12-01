@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Save, FileUp, ChevronDown, User, Check } from "lucide-react";
+import { X, Save, FileUp, ChevronDown, User, Check, Calendar } from "lucide-react";
 import { useState, useTransition, useEffect, useRef } from "react";
 import { saveNote, getPreachers } from "@/lib/actions";
 import { useLayoutContext } from "./LayoutContext";
@@ -12,11 +12,12 @@ interface NotePanelProps {
 }
 
 export function NotePanel({ isOpen, onClose }: NotePanelProps) {
-    const { noteTitle, noteContent, noteEvent, notePreacher, loadedNoteId, setNoteTitle, setNoteContent, setNoteEvent, setNotePreacher, obsidianConfig } = useLayoutContext();
+    const { noteTitle, noteContent, noteEvent, notePreacher, loadedNoteId, setNoteTitle, setNoteContent, setNoteEvent, setNotePreacher, obsidianConfig, notePanelWidth, setNotePanelWidth } = useLayoutContext();
     const [isPending, startTransition] = useTransition();
     const [saveStatus, setSaveStatus] = useState<string | null>(null);
     const [isExporting, setIsExporting] = useState(false);
     const [preachers, setPreachers] = useState<string[]>([]);
+    const [isResizing, setIsResizing] = useState(false);
 
     // Dropdown states
     const [isEventOpen, setIsEventOpen] = useState(false);
@@ -48,6 +49,38 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // Resize handler
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing) return;
+
+            const newWidth = ((window.innerWidth - e.clientX) / window.innerWidth) * 100;
+            // Clamp between 25% and 50%
+            const clampedWidth = Math.min(Math.max(newWidth, 25), 50);
+            setNotePanelWidth(clampedWidth);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            document.body.style.cursor = 'default';
+            document.body.style.userSelect = 'auto';
+        };
+
+        if (isResizing) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none'; // Prevent text selection while dragging
+        }
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'default';
+            document.body.style.userSelect = 'auto';
+        };
+    }, [isResizing, setNotePanelWidth]);
 
     if (!isOpen) return null;
 
@@ -102,7 +135,15 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
     );
 
     return (
-        <div className="w-1/3 border-l border-border bg-background h-full flex flex-col">
+        <div
+            className="border-l border-border bg-background h-full flex flex-col relative"
+            style={{ width: `${notePanelWidth}%` }}
+        >
+            {/* Drag Handle */}
+            <div
+                className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors z-50"
+                onMouseDown={() => setIsResizing(true)}
+            />
             <div className="p-4 border-b border-border flex items-center justify-between">
                 <h2 className="font-semibold">{loadedNoteId ? 'Edit Note' : 'New Note'}</h2>
                 <div className="flex items-center gap-2">
@@ -149,17 +190,17 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
                         <div className="relative w-1/3" ref={eventRef}>
                             <div
                                 onClick={() => setIsEventOpen(!isEventOpen)}
-                                className="w-full pl-3 pr-8 py-2 bg-transparent border border-border rounded-md cursor-pointer flex items-center justify-between hover:bg-accent/50 transition-colors"
+                                className="w-full pl-3 pr-8 py-2 bg-transparent border border-border rounded-md cursor-pointer flex items-center relative"
                             >
                                 <span className={`text-sm ${!noteEvent ? 'text-muted-foreground' : ''}`}>
                                     {noteEvent || "Event"}
                                 </span>
-                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                <Calendar className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                             </div>
 
                             {isEventOpen && (
                                 <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md shadow-md z-[9999] py-1">
-                                    {['MBS', 'SWS', 'ATR'].map((event) => (
+                                    {['MBS', 'SWS', 'ATR', 'WTT', 'MMT', 'Workshop', 'Training'].map((event) => (
                                         <div
                                             key={event}
                                             onClick={() => {

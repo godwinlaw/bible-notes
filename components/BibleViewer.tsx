@@ -25,7 +25,7 @@ export function BibleViewer({ book, chapter, verses, backlinks }: BibleViewerPro
         const reference = formatVerseReference(book, chapter, verseNumber);
         appendVerseReference(reference);
         if (!isNotePanelOpen) {
-            openNotePanel();
+            openNotePanel(book, chapter);
         }
     };
 
@@ -33,7 +33,7 @@ export function BibleViewer({ book, chapter, verses, backlinks }: BibleViewerPro
         const reference = formatChapterReference(book, chapter);
         appendVerseReference(reference);
         if (!isNotePanelOpen) {
-            openNotePanel();
+            openNotePanel(book, chapter);
         }
     };
 
@@ -91,7 +91,7 @@ export function BibleViewer({ book, chapter, verses, backlinks }: BibleViewerPro
 
         appendVerseReference(reference);
         if (!isNotePanelOpen) {
-            openNotePanel();
+            openNotePanel(book, chapter);
         }
 
         // Clear selection

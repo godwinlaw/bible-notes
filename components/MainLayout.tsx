@@ -13,7 +13,7 @@ function MainLayoutContent({
     children: React.ReactNode;
     sidebar: React.ReactNode;
 }) {
-    const { isSidebarOpen, isNotePanelOpen, closeNotePanel, openNotePanel } = useLayoutContext();
+    const { isSidebarOpen, isNotePanelOpen, closeNotePanel } = useLayoutContext();
 
     return (
         <div className="flex min-h-screen bg-background overflow-hidden">
@@ -26,7 +26,7 @@ function MainLayoutContent({
                 </div>
             </div>
             <div className="flex-1 flex flex-col h-screen overflow-hidden">
-                <TopBar onNewNote={openNotePanel} />
+                <TopBar />
                 <div className="flex-1 flex overflow-hidden">
                     <main className="flex-1 overflow-y-auto">
                         {children}

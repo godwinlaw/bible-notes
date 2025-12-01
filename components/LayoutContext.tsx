@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { loadNote as loadNoteAction } from '@/lib/actions';
+import { generateNoteTitle, getDefaultEvent } from '@/lib/note-utils';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -23,12 +24,14 @@ interface LayoutContextType {
     appendVerseReference: (reference: string) => void;
     toggleSidebar: () => void;
     setSidebarOpen: (isOpen: boolean) => void;
-    openNotePanel: () => void;
+    openNotePanel: (book?: string, chapter?: number) => void;
     closeNotePanel: () => void;
     loadNote: (id: number) => Promise<void>;
     setTheme: (theme: Theme) => void;
     setObsidianConfig: (config: { apiKey: string; port: string; enabled: boolean }) => void;
     setIsSettingsOpen: (isOpen: boolean) => void;
+    notePanelWidth: number;
+    setNotePanelWidth: (width: number) => void;
 }
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
@@ -44,6 +47,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     const [theme, setThemeState] = useState<Theme>('system');
     const [obsidianConfig, setObsidianConfigState] = useState<{ apiKey: string; port: string; enabled: boolean }>({ apiKey: '', port: '27123', enabled: true });
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [notePanelWidth, setNotePanelWidth] = useState(33); // Percentage
 
     const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
     const setSidebarOpen = (isOpen: boolean) => setIsSidebarOpen(isOpen);
@@ -102,7 +106,14 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('obsidianConfig', JSON.stringify(config));
     };
 
-    const openNotePanel = () => {
+    const openNotePanel = (book?: string, chapter?: number) => {
+        // If book and chapter are provided and we're creating a new note (not editing)
+        if (book && chapter && !loadedNoteId) {
+            const title = generateNoteTitle(book, chapter);
+            const event = getDefaultEvent();
+            setNoteTitle(title);
+            setNoteEvent(event);
+        }
         setIsNotePanelOpen(true);
         setIsSidebarOpen(false); // Auto-collapse sidebar
     };
@@ -157,7 +168,9 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             loadNote,
             setTheme,
             setObsidianConfig,
-            setIsSettingsOpen
+            setIsSettingsOpen,
+            notePanelWidth,
+            setNotePanelWidth
         }}>
             {children}
         </LayoutContext.Provider>
