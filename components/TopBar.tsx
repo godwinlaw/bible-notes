@@ -1,26 +1,9 @@
-import { Plus, PanelLeft, Settings } from "lucide-react";
+import { PanelLeft, Settings, Menu } from "lucide-react";
 import { useLayoutContext } from "./LayoutContext";
 import { SettingsModal } from "./SettingsModal";
-import { usePathname } from "next/navigation";
 
 export function TopBar() {
-    const { toggleSidebar, setIsSettingsOpen, isSettingsOpen, openNotePanel } = useLayoutContext();
-    const pathname = usePathname();
-
-    // Extract book and chapter from pathname
-    const handleNewNote = () => {
-        const pathParts = pathname.split('/').filter(Boolean);
-        if (pathParts.length >= 2) {
-            const book = decodeURIComponent(pathParts[0]);
-            const chapter = parseInt(pathParts[1], 10);
-            if (!isNaN(chapter)) {
-                openNotePanel(book, chapter);
-                return;
-            }
-        }
-        // Fallback if not on a chapter page
-        openNotePanel();
-    };
+    const { toggleSidebar, setIsSettingsOpen, isSettingsOpen, toggleNotePanel } = useLayoutContext();
 
     return (
         <>
@@ -41,11 +24,11 @@ export function TopBar() {
                         <Settings className="w-5 h-5" />
                     </button>
                     <button
-                        onClick={handleNewNote}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
+                        onClick={toggleNotePanel}
+                        className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                        title="Toggle Notes Panel"
                     >
-                        <Plus className="w-4 h-4" />
-                        New Note
+                        <Menu className="w-5 h-5" />
                     </button>
                 </div>
             </div>

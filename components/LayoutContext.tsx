@@ -9,6 +9,7 @@ type Theme = 'light' | 'dark' | 'system';
 interface LayoutContextType {
     isSidebarOpen: boolean;
     isNotePanelOpen: boolean;
+    notePanelView: 'list' | 'editor';
     noteTitle: string;
     noteContent: string;
     noteEvent: string;
@@ -26,12 +27,14 @@ interface LayoutContextType {
     setSidebarOpen: (isOpen: boolean) => void;
     openNotePanel: (book?: string, chapter?: number) => void;
     closeNotePanel: () => void;
+    toggleNotePanel: () => void;
     loadNote: (id: number) => Promise<void>;
     setTheme: (theme: Theme) => void;
     setObsidianConfig: (config: { apiKey: string; port: string; enabled: boolean }) => void;
     setIsSettingsOpen: (isOpen: boolean) => void;
     notePanelWidth: number;
     setNotePanelWidth: (width: number) => void;
+    setNotePanelView: (view: 'list' | 'editor') => void;
 }
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
@@ -39,6 +42,7 @@ const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
 export function LayoutProvider({ children }: { children: ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isNotePanelOpen, setIsNotePanelOpen] = useState(false);
+    const [notePanelView, setNotePanelView] = useState<'list' | 'editor'>('list');
     const [noteTitle, setNoteTitle] = useState("");
     const [noteContent, setNoteContent] = useState("");
     const [noteEvent, setNoteEvent] = useState("");
@@ -113,6 +117,9 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             const event = getDefaultEvent();
             setNoteTitle(title);
             setNoteEvent(event);
+            setNotePanelView('editor');
+        } else if (!loadedNoteId) {
+            setNotePanelView('list');
         }
         setIsNotePanelOpen(true);
         setIsSidebarOpen(false); // Auto-collapse sidebar
@@ -127,6 +134,14 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setNotePreacher("");
     };
 
+    const toggleNotePanel = () => {
+        if (isNotePanelOpen) {
+            closeNotePanel();
+        } else {
+            openNotePanel();
+        }
+    };
+
     const appendVerseReference = (reference: string) => {
         setNoteContent(prev => prev ? `${prev}\n${reference}` : reference);
     };
@@ -139,6 +154,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             setNoteContent(result.note.content);
             setNoteEvent(result.note.event || "");
             setNotePreacher(result.note.preacher || "");
+            setNotePanelView('editor');
             setIsNotePanelOpen(true);
             setIsSidebarOpen(false);
         }
@@ -165,12 +181,15 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             setSidebarOpen,
             openNotePanel,
             closeNotePanel,
+            toggleNotePanel,
             loadNote,
             setTheme,
             setObsidianConfig,
             setIsSettingsOpen,
             notePanelWidth,
-            setNotePanelWidth
+            setNotePanelWidth,
+            notePanelView,
+            setNotePanelView
         }}>
             {children}
         </LayoutContext.Provider>

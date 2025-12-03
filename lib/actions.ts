@@ -1,6 +1,6 @@
 'use server';
 
-import { mkdir, writeFile, readFile } from 'fs/promises';
+import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import path from 'path';
 import { revalidatePath } from 'next/cache';
 import db from './db';
@@ -127,6 +127,61 @@ export async function loadNote(id: number) {
     } catch (error) {
         console.error('Failed to load note:', error);
         return { success: false, error: 'Failed to load note' };
+    }
+}
+
+export async function getAllNotes() {
+    try {
+        const notes = db.prepare(`
+            SELECT n.id, n.title, n.event, n.updated_at, p.name as preacher_name
+            FROM notes n
+            LEFT JOIN preachers p ON n.preacher_id = p.id
+            ORDER BY n.updated_at DESC
+        `).all() as {
+            id: number;
+            title: string;
+            event?: string;
+            updated_at: string;
+            preacher_name?: string;
+        }[];
+
+        return { success: true, notes };
+    } catch (error) {
+        console.error('Failed to fetch notes:', error);
+        return { success: false, error: 'Failed to fetch notes' };
+    }
+}
+
+export async function deleteNote(id: number) {
+    try {
+        const note = db.prepare('SELECT filename FROM notes WHERE id = ?').get(id) as { filename: string } | undefined;
+
+        if (!note) {
+            return { success: false, error: 'Note not found' };
+        }
+
+        // Delete file
+        const notesDir = path.join(process.cwd(), 'notes');
+        const filePath = path.join(notesDir, note.filename);
+
+        try {
+            await unlink(filePath);
+        } catch (e) {
+            // ignore if file doesn't exist
+            console.warn('File not found for deletion:', filePath);
+        }
+
+        // Delete from DB
+        db.prepare('DELETE FROM notes WHERE id = ?').run(id);
+
+        // Also delete references?
+        db.prepare('DELETE FROM chapter_references WHERE note_id = ?').run(id);
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to delete note:', error);
+        return { success: false, error: 'Failed to delete note' };
     }
 }
 
