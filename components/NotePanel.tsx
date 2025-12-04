@@ -180,10 +180,10 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
                             <button
                                 onClick={handleSave}
                                 disabled={isPending || !noteTitle.trim()}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="p-2 hover:bg-accent rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={isPending ? "Saving..." : "Save"}
                             >
-                                <Save className="w-4 h-4" />
-                                {isPending ? "Saving..." : "Save"}
+                                <Save className="w-5 h-5" />
                             </button>
                         </div>
                     </div>

@@ -28,6 +28,7 @@ interface LayoutContextType {
     openNotePanel: (book?: string, chapter?: number) => void;
     closeNotePanel: () => void;
     toggleNotePanel: () => void;
+    createNewNote: () => void;
     loadNote: (id: number) => Promise<void>;
     setTheme: (theme: Theme) => void;
     setObsidianConfig: (config: { apiKey: string; port: string; enabled: boolean }) => void;
@@ -146,6 +147,16 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setNoteContent(prev => prev ? `${prev}\n${reference}` : reference);
     };
 
+    const createNewNote = () => {
+        setLoadedNoteId(null);
+        setNoteTitle("");
+        setNoteContent("");
+        setNoteEvent("");
+        setNotePreacher("");
+        setNotePanelView('editor');
+        setIsNotePanelOpen(true);
+    };
+
     const loadNote = async (id: number) => {
         const result = await loadNoteAction(id);
         if (result.success && result.note) {
@@ -182,6 +193,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             openNotePanel,
             closeNotePanel,
             toggleNotePanel,
+            createNewNote,
             loadNote,
             setTheme,
             setObsidianConfig,

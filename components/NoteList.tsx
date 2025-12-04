@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { getAllNotes, deleteNote } from "@/lib/actions";
 import { useLayoutContext } from "./LayoutContext";
-import { Plus, Calendar, User, Clock, Trash2 } from "lucide-react";
+import { Plus, Calendar, User, Clock, Trash2, Filter, X, Check, Search } from "lucide-react";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface Note {
@@ -15,9 +15,21 @@ interface Note {
 }
 
 export function NoteList() {
-    const { loadNote, setNotePanelView, setNoteTitle, setNoteContent, setNoteEvent, setNotePreacher, closeNotePanel } = useLayoutContext();
+    const { loadNote, createNewNote } = useLayoutContext();
     const [notes, setNotes] = useState<Note[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Search state
+    const [searchTerm, setSearchTerm] = useState<string>("");
+
+    // Filter state
+    const [selectedEvent, setSelectedEvent] = useState<string>("");
+    const [selectedAuthor, setSelectedAuthor] = useState<string>("");
+    const [isEventFilterOpen, setIsEventFilterOpen] = useState(false);
+    const [isAuthorFilterOpen, setIsAuthorFilterOpen] = useState(false);
+
+    const eventFilterRef = useRef<HTMLDivElement>(null);
+    const authorFilterRef = useRef<HTMLDivElement>(null);
 
     // Delete state
     const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
@@ -35,12 +47,22 @@ export function NoteList() {
         fetchNotes();
     }, []);
 
+    // Click outside handler for filter dropdowns
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (eventFilterRef.current && !eventFilterRef.current.contains(event.target as Node)) {
+                setIsEventFilterOpen(false);
+            }
+            if (authorFilterRef.current && !authorFilterRef.current.contains(event.target as Node)) {
+                setIsAuthorFilterOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     const handleNewNote = () => {
-        setNoteTitle("");
-        setNoteContent("");
-        setNoteEvent("");
-        setNotePreacher("");
-        setNotePanelView('editor');
+        createNewNote();
     };
 
     const handleDelete = async () => {
@@ -70,6 +92,33 @@ export function NoteList() {
         });
     };
 
+    // Extract unique events and authors
+    const uniqueEvents = Array.from(new Set(notes.map(note => note.event).filter(Boolean))) as string[];
+    const uniqueAuthors = Array.from(new Set(notes.map(note => note.preacher_name).filter(Boolean))) as string[];
+
+    // Filter notes based on search and selected filters
+    const filteredNotes = notes.filter(note => {
+        // Search filter
+        if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            const matchesTitle = note.title.toLowerCase().includes(searchLower);
+            if (!matchesTitle) return false;
+        }
+
+        // Event and author filters
+        if (selectedEvent && note.event !== selectedEvent) return false;
+        if (selectedAuthor && note.preacher_name !== selectedAuthor) return false;
+        return true;
+    });
+
+    const hasActiveFilters = selectedEvent || selectedAuthor || searchTerm;
+
+    const clearFilters = () => {
+        setSearchTerm("");
+        setSelectedEvent("");
+        setSelectedAuthor("");
+    };
+
     const getEventColor = (event: string) => {
         switch (event) {
             case 'MBS':
@@ -93,33 +142,152 @@ export function NoteList() {
 
     return (
         <div className="flex flex-col h-full bg-background relative">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-                <h2 className="font-semibold text-lg">Notes</h2>
-                <button
-                    onClick={handleNewNote}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
-                >
-                    <Plus className="w-4 h-4" />
-                    New Note
-                </button>
+            <div className="p-4 border-b border-border">
+                <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-semibold text-lg">Notes</h2>
+                    <button
+                        onClick={handleNewNote}
+                        className="p-2 hover:bg-accent rounded-full transition-colors"
+                        title="New Note"
+                    >
+                        <Plus className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Search input */}
+                <div className="mb-3 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search notes..."
+                        className="w-full pl-9 pr-8 py-2 bg-transparent border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                    />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-accent rounded transition-colors"
+                            title="Clear search"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
+
+                {/* Filter controls */}
+                <div className="flex gap-2 items-center">
+                    {/* Event filter */}
+                    <div className="relative flex-1" ref={eventFilterRef}>
+                        <div
+                            onClick={() => setIsEventFilterOpen(!isEventFilterOpen)}
+                            className="w-full pl-3 pr-8 py-1.5 bg-transparent border border-border rounded-md cursor-pointer flex items-center relative text-sm"
+                        >
+                            <span className={!selectedEvent ? 'text-muted-foreground' : ''}>
+                                {selectedEvent || "All Events"}
+                            </span>
+                            <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        </div>
+
+                        {isEventFilterOpen && (
+                            <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md shadow-md z-[9999] py-1">
+                                <div
+                                    onClick={() => {
+                                        setSelectedEvent("");
+                                        setIsEventFilterOpen(false);
+                                    }}
+                                    className="px-3 py-1.5 text-sm hover:bg-accent cursor-pointer flex items-center justify-between"
+                                >
+                                    All Events
+                                    {!selectedEvent && <Check className="w-3 h-3 text-primary" />}
+                                </div>
+                                {uniqueEvents.map((event) => (
+                                    <div
+                                        key={event}
+                                        onClick={() => {
+                                            setSelectedEvent(event);
+                                            setIsEventFilterOpen(false);
+                                        }}
+                                        className="px-3 py-1.5 text-sm hover:bg-accent cursor-pointer flex items-center justify-between"
+                                    >
+                                        {event}
+                                        {selectedEvent === event && <Check className="w-3 h-3 text-primary" />}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Author filter */}
+                    <div className="relative flex-1" ref={authorFilterRef}>
+                        <div
+                            onClick={() => setIsAuthorFilterOpen(!isAuthorFilterOpen)}
+                            className="w-full pl-3 pr-8 py-1.5 bg-transparent border border-border rounded-md cursor-pointer flex items-center relative text-sm"
+                        >
+                            <span className={!selectedAuthor ? 'text-muted-foreground' : ''}>
+                                {selectedAuthor || "All Authors"}
+                            </span>
+                            <User className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        </div>
+
+                        {isAuthorFilterOpen && (
+                            <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md shadow-md z-[9999] py-1 max-h-48 overflow-y-auto">
+                                <div
+                                    onClick={() => {
+                                        setSelectedAuthor("");
+                                        setIsAuthorFilterOpen(false);
+                                    }}
+                                    className="px-3 py-1.5 text-sm hover:bg-accent cursor-pointer flex items-center justify-between"
+                                >
+                                    All Authors
+                                    {!selectedAuthor && <Check className="w-3 h-3 text-primary" />}
+                                </div>
+                                {uniqueAuthors.map((author) => (
+                                    <div
+                                        key={author}
+                                        onClick={() => {
+                                            setSelectedAuthor(author);
+                                            setIsAuthorFilterOpen(false);
+                                        }}
+                                        className="px-3 py-1.5 text-sm hover:bg-accent cursor-pointer flex items-center justify-between"
+                                    >
+                                        {author}
+                                        {selectedAuthor === author && <Check className="w-3 h-3 text-primary" />}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Clear filters button */}
+                    {hasActiveFilters && (
+                        <button
+                            onClick={clearFilters}
+                            className="p-1.5 hover:bg-accent rounded transition-colors"
+                            title="Clear Filters"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 overflow-x-hidden">
                 {isLoading ? (
                     <div className="text-center text-muted-foreground py-8">Loading notes...</div>
-                ) : notes.length === 0 ? (
+                ) : filteredNotes.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8">
-                        No notes yet. Create one to get started!
+                        {notes.length === 0 ? "No notes yet. Create one to get started!" : "No notes match the selected filters."}
                     </div>
                 ) : (
-                    notes.map((note) => (
+                    filteredNotes.map((note) => (
                         <div
                             key={note.id}
                             onClick={() => loadNote(note.id)}
                             className="p-3 border border-border rounded-lg hover:bg-accent cursor-pointer flex flex-col gap-2 group relative transition-all duration-300 opacity-100 scale-100"
                         >
                             <div className="flex items-start justify-between gap-2 pr-6">
-                                <h3 className="font-medium group-hover:text-primary transition-colors line-clamp-1">
+                                <h3 className="font-medium group-hover:text-accent-foreground transition-colors line-clamp-1">
                                     {note.title}
                                 </h3>
                                 {note.event && (
@@ -129,7 +297,7 @@ export function NoteList() {
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground group-hover:text-accent-foreground/80 transition-colors">
                                 <div className="flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
                                     {formatDate(note.updated_at)}
