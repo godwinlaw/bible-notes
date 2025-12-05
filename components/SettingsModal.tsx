@@ -10,10 +10,12 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-    const { theme, setTheme, obsidianConfig, setObsidianConfig } = useLayoutContext();
+    const { theme, setTheme, obsidianConfig, setObsidianConfig, localExportPath, setLocalExportPath } = useLayoutContext();
     const [apiKey, setApiKey] = useState(obsidianConfig.apiKey);
     const [port, setPort] = useState(obsidianConfig.port);
     const [enabled, setEnabled] = useState(obsidianConfig.enabled);
+    const [exportPath, setExportPath] = useState(obsidianConfig.exportPath || '');
+    const [localPath, setLocalPath] = useState(localExportPath || '');
     const [isDirty, setIsDirty] = useState(false);
 
     useEffect(() => {
@@ -21,12 +23,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             setApiKey(obsidianConfig.apiKey);
             setPort(obsidianConfig.port);
             setEnabled(obsidianConfig.enabled);
+            setExportPath(obsidianConfig.exportPath || '');
+            setLocalPath(localExportPath || '');
             setIsDirty(false);
         }
-    }, [isOpen, obsidianConfig]);
+    }, [isOpen, obsidianConfig, localExportPath]);
 
     const handleSave = () => {
-        setObsidianConfig({ apiKey, port, enabled });
+        setObsidianConfig({ apiKey, port, enabled, exportPath });
+        setLocalExportPath(localPath);
         setIsDirty(false);
         onClose();
     };
@@ -95,7 +100,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             </label>
                         </div>
 
-                        {enabled && (
+                        {enabled ? (
                             <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
                                 <div className="space-y-1">
                                     <label className="text-sm font-medium">API Key</label>
@@ -124,6 +129,38 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                                     />
                                     <p className="text-xs text-muted-foreground">Default is usually 27123 or 27124.</p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">Vault Folder Path (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={exportPath}
+                                        onChange={(e) => {
+                                            setExportPath(e.target.value);
+                                            setIsDirty(true);
+                                        }}
+                                        placeholder="e.g. Bible Notes/Sermons"
+                                        className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Folder where notes will be saved. Leave empty for root.</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">Local Export Path</label>
+                                    <input
+                                        type="text"
+                                        value={localPath}
+                                        onChange={(e) => {
+                                            setLocalPath(e.target.value);
+                                            setIsDirty(true);
+                                        }}
+                                        placeholder="/Users/username/Documents/Notes"
+                                        className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Absolute path to save markdown files.</p>
                                 </div>
                             </div>
                         )}

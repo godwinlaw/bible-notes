@@ -185,3 +185,24 @@ export async function deleteNote(id: number) {
     }
 }
 
+export async function exportNoteToPath(pathStr: string, filename: string, content: string) {
+    try {
+        // Resolve path to ensure it's absolute if not already, though we expect absolute
+        const exportDir = path.resolve(pathStr);
+
+        // Create directory recursively
+        await mkdir(exportDir, { recursive: true });
+
+        // Ensure filename ends with .md
+        const safeFilename = filename.endsWith('.md') ? filename : `${filename}.md`;
+        const filePath = path.join(exportDir, safeFilename);
+
+        await writeFile(filePath, content, 'utf-8');
+
+        return { success: true, message: `Successfully exported to ${filePath}` };
+    } catch (error) {
+        console.error('Failed to export note to path:', error);
+        return { success: false, message: `Failed to export: ${(error as Error).message}` };
+    }
+}
+

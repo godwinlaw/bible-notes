@@ -1,6 +1,7 @@
 export interface ObsidianConfig {
     apiKey: string;
     port: string;
+    exportPath?: string;
 }
 
 export async function exportToObsidian(
@@ -17,7 +18,18 @@ export async function exportToObsidian(
 
     // Sanitize title for filename
     const filename = title.replace(/[\\/:*?"<>|]/g, "-") || "Untitled Note";
-    const endpoint = `${baseUrl}/vault/${encodeURIComponent(filename)}.md`;
+
+    // Construct path
+    let path = filename;
+    if (config.exportPath) {
+        // Remove leading/trailing slashes from config path
+        const cleanPath = config.exportPath.replace(/^\/+|\/+$/g, '');
+        if (cleanPath) {
+            path = `${cleanPath}/${filename}`;
+        }
+    }
+
+    const endpoint = `${baseUrl}/vault/${encodeURIComponent(path)}.md`;
 
     try {
         const response = await fetch(endpoint, {

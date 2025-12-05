@@ -16,7 +16,8 @@ interface LayoutContextType {
     notePreacher: string;
     loadedNoteId: number | null;
     theme: Theme;
-    obsidianConfig: { apiKey: string; port: string; enabled: boolean };
+    obsidianConfig: { apiKey: string; port: string; enabled: boolean; exportPath: string };
+    localExportPath: string; // [NEW]
     isSettingsOpen: boolean;
     setNoteTitle: (title: string) => void;
     setNoteContent: (content: string) => void;
@@ -31,7 +32,8 @@ interface LayoutContextType {
     createNewNote: () => void;
     loadNote: (id: number) => Promise<void>;
     setTheme: (theme: Theme) => void;
-    setObsidianConfig: (config: { apiKey: string; port: string; enabled: boolean }) => void;
+    setObsidianConfig: (config: { apiKey: string; port: string; enabled: boolean; exportPath: string }) => void;
+    setLocalExportPath: (path: string) => void; // [NEW]
     setIsSettingsOpen: (isOpen: boolean) => void;
     notePanelWidth: number;
     setNotePanelWidth: (width: number) => void;
@@ -50,7 +52,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     const [notePreacher, setNotePreacher] = useState("");
     const [loadedNoteId, setLoadedNoteId] = useState<number | null>(null);
     const [theme, setThemeState] = useState<Theme>('system');
-    const [obsidianConfig, setObsidianConfigState] = useState<{ apiKey: string; port: string; enabled: boolean }>({ apiKey: '', port: '27123', enabled: true });
+    const [obsidianConfig, setObsidianConfigState] = useState<{ apiKey: string; port: string; enabled: boolean; exportPath: string }>({ apiKey: '', port: '27123', enabled: true, exportPath: '' });
+    const [localExportPath, setLocalExportPathState] = useState(""); // [NEW]
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [notePanelWidth, setNotePanelWidth] = useState(33); // Percentage
 
@@ -71,6 +74,11 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             } catch (e) {
                 console.error("Failed to parse obsidian config", e);
             }
+        }
+
+        const savedLocalPath = localStorage.getItem('localExportPath');
+        if (savedLocalPath) {
+            setLocalExportPathState(savedLocalPath);
         }
     }, []);
 
@@ -106,9 +114,14 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('theme', newTheme);
     };
 
-    const setObsidianConfig = (config: { apiKey: string; port: string; enabled: boolean }) => {
+    const setObsidianConfig = (config: { apiKey: string; port: string; enabled: boolean; exportPath: string }) => {
         setObsidianConfigState(config);
         localStorage.setItem('obsidianConfig', JSON.stringify(config));
+    };
+
+    const setLocalExportPath = (path: string) => { // [NEW]
+        setLocalExportPathState(path);
+        localStorage.setItem('localExportPath', path);
     };
 
     const openNotePanel = (book?: string, chapter?: number) => {
@@ -197,6 +210,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             loadNote,
             setTheme,
             setObsidianConfig,
+            localExportPath, // [NEW]
+            setLocalExportPath, // [NEW]
             setIsSettingsOpen,
             notePanelWidth,
             setNotePanelWidth,

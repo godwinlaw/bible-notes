@@ -2,7 +2,7 @@
 
 import { X, Save, FileUp, ChevronDown, User, Check, Calendar, ArrowLeft } from "lucide-react";
 import { useState, useTransition, useEffect, useRef } from "react";
-import { saveNote, getPreachers } from "@/lib/actions";
+import { saveNote, getPreachers, exportNoteToPath } from "@/lib/actions";
 import { useLayoutContext } from "./LayoutContext";
 import { exportToObsidian } from "@/lib/obsidian";
 import { NoteList } from "./NoteList";
@@ -17,7 +17,7 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
         noteTitle, noteContent, noteEvent, notePreacher, loadedNoteId,
         setNoteTitle, setNoteContent, setNoteEvent, setNotePreacher,
         obsidianConfig, notePanelWidth, setNotePanelWidth,
-        notePanelView, setNotePanelView
+        notePanelView, setNotePanelView, localExportPath
     } = useLayoutContext();
     const [isPending, startTransition] = useTransition();
     const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -126,7 +126,16 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
         }
 
         setIsExporting(true);
-        const result = await exportToObsidian(noteTitle, noteContent, obsidianConfig);
+
+        let result;
+        if (obsidianConfig.enabled) {
+            result = await exportToObsidian(noteTitle, noteContent, obsidianConfig);
+        } else if (localExportPath) {
+            result = await exportNoteToPath(localExportPath, noteTitle, noteContent);
+        } else {
+            result = { success: false, message: "No export path configured. Please check Settings." };
+        }
+
         setIsExporting(false);
 
         setSaveStatus(result.message);
@@ -166,12 +175,12 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
                             <h2 className="font-semibold">{loadedNoteId ? 'Edit Note' : 'New Note'}</h2>
                         </div>
                         <div className="flex items-center gap-2">
-                            {obsidianConfig.enabled && (
+                            {(obsidianConfig.enabled || !obsidianConfig.enabled) && (
                                 <button
                                     onClick={handleExport}
                                     disabled={isExporting || !noteTitle.trim()}
                                     className="flex items-center gap-2 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Export to Obsidian"
+                                    title={obsidianConfig.enabled ? "Export to Obsidian" : "Export to Local Disk"}
                                 >
                                     <FileUp className="w-4 h-4" />
                                     {isExporting ? "Exporting..." : "Export"}
