@@ -6,6 +6,7 @@ import { saveNote, getPreachers, exportNoteToPath } from "@/lib/actions";
 import { useLayoutContext } from "./LayoutContext";
 import { exportToObsidian } from "@/lib/obsidian";
 import { NoteList } from "./NoteList";
+import { AudioRecorder } from "./AudioRecorder";
 
 interface NotePanelProps {
     isOpen: boolean;
@@ -295,6 +296,11 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
                             className="w-full flex-1 bg-transparent resize-none focus:outline-none border border-border rounded-md px-3 py-2"
                             placeholder="Start typing your note..."
                         />
+
+                        {/* Audio Recordings Section */}
+                        <div className="border-t border-border pt-4">
+                            <AudioRecorder noteId={loadedNoteId} />
+                        </div>
                     </div>
                 </>
             )}

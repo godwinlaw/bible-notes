@@ -206,3 +206,74 @@ export async function exportNoteToPath(pathStr: string, filename: string, conten
     }
 }
 
+// Audio attachment actions
+export interface AudioAttachment {
+    id: number;
+    note_id: number;
+    mime_type: string;
+    duration_seconds: number | null;
+    created_at: string;
+}
+
+export async function saveAudioAttachment(
+    noteId: number,
+    audioBase64: string,
+    mimeType: string = 'audio/webm',
+    durationSeconds: number | null = null
+) {
+    try {
+        // Decode base64 to buffer
+        const audioBuffer = Buffer.from(audioBase64, 'base64');
+
+        const result = db.prepare(
+            'INSERT INTO audio_attachments (note_id, audio_data, mime_type, duration_seconds) VALUES (?, ?, ?, ?)'
+        ).run(noteId, audioBuffer, mimeType, durationSeconds);
+
+        return { success: true, attachmentId: result.lastInsertRowid as number };
+    } catch (error) {
+        console.error('Failed to save audio attachment:', error);
+        return { success: false, error: 'Failed to save audio attachment' };
+    }
+}
+
+export async function getAudioAttachments(noteId: number) {
+    try {
+        const attachments = db.prepare(
+            'SELECT id, note_id, mime_type, duration_seconds, created_at FROM audio_attachments WHERE note_id = ? ORDER BY created_at DESC'
+        ).all(noteId) as AudioAttachment[];
+
+        return { success: true, attachments };
+    } catch (error) {
+        console.error('Failed to get audio attachments:', error);
+        return { success: false, error: 'Failed to get audio attachments' };
+    }
+}
+
+export async function getAudioBlob(attachmentId: number) {
+    try {
+        const attachment = db.prepare(
+            'SELECT audio_data, mime_type FROM audio_attachments WHERE id = ?'
+        ).get(attachmentId) as { audio_data: Buffer; mime_type: string } | undefined;
+
+        if (!attachment) {
+            return { success: false, error: 'Audio attachment not found' };
+        }
+
+        // Convert buffer to base64 for transfer
+        const base64 = attachment.audio_data.toString('base64');
+        return { success: true, audioBase64: base64, mimeType: attachment.mime_type };
+    } catch (error) {
+        console.error('Failed to get audio blob:', error);
+        return { success: false, error: 'Failed to get audio blob' };
+    }
+}
+
+export async function deleteAudioAttachment(attachmentId: number) {
+    try {
+        db.prepare('DELETE FROM audio_attachments WHERE id = ?').run(attachmentId);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to delete audio attachment:', error);
+        return { success: false, error: 'Failed to delete audio attachment' };
+    }
+}

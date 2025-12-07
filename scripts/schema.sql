@@ -30,3 +30,16 @@ CREATE TABLE IF NOT EXISTS chapter_references (
 -- Index for efficient backlink queries
 CREATE INDEX IF NOT EXISTS idx_chapter_refs_book_chapter ON chapter_references(book, chapter);
 CREATE INDEX IF NOT EXISTS idx_chapter_refs_note_id ON chapter_references(note_id);
+
+-- Audio attachments table (stores audio recordings linked to notes)
+CREATE TABLE IF NOT EXISTS audio_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id INTEGER NOT NULL,
+    audio_data BLOB NOT NULL,
+    mime_type TEXT DEFAULT 'audio/webm',
+    duration_seconds REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_audio_attachments_note_id ON audio_attachments(note_id);
