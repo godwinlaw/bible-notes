@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS audio_attachments (
     audio_data BLOB NOT NULL,
     mime_type TEXT DEFAULT 'audio/webm',
     duration_seconds REAL,
+    transcript TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
 );

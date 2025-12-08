@@ -212,6 +212,7 @@ export interface AudioAttachment {
     note_id: number;
     mime_type: string;
     duration_seconds: number | null;
+    transcript: string | null;
     created_at: string;
 }
 
@@ -219,15 +220,16 @@ export async function saveAudioAttachment(
     noteId: number,
     audioBase64: string,
     mimeType: string = 'audio/webm',
-    durationSeconds: number | null = null
+    durationSeconds: number | null = null,
+    transcript: string | null = null
 ) {
     try {
         // Decode base64 to buffer
         const audioBuffer = Buffer.from(audioBase64, 'base64');
 
         const result = db.prepare(
-            'INSERT INTO audio_attachments (note_id, audio_data, mime_type, duration_seconds) VALUES (?, ?, ?, ?)'
-        ).run(noteId, audioBuffer, mimeType, durationSeconds);
+            'INSERT INTO audio_attachments (note_id, audio_data, mime_type, duration_seconds, transcript) VALUES (?, ?, ?, ?, ?)'
+        ).run(noteId, audioBuffer, mimeType, durationSeconds, transcript);
 
         return { success: true, attachmentId: result.lastInsertRowid as number };
     } catch (error) {
@@ -239,7 +241,7 @@ export async function saveAudioAttachment(
 export async function getAudioAttachments(noteId: number) {
     try {
         const attachments = db.prepare(
-            'SELECT id, note_id, mime_type, duration_seconds, created_at FROM audio_attachments WHERE note_id = ? ORDER BY created_at DESC'
+            'SELECT id, note_id, mime_type, duration_seconds, transcript, created_at FROM audio_attachments WHERE note_id = ? ORDER BY created_at DESC'
         ).all(noteId) as AudioAttachment[];
 
         return { success: true, attachments };

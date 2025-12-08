@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, Square, Trash2, Play, Pause, Loader2 } from "lucide-react";
+import { Mic, Square, Trash2, Play, Pause, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import {
     saveAudioAttachment,
     getAudioAttachments,
@@ -22,11 +23,21 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
     const [attachments, setAttachments] = useState<AudioAttachment[]>([]);
     const [playingId, setPlayingId] = useState<number | null>(null);
     const [loadingAudioId, setLoadingAudioId] = useState<number | null>(null);
+    const [expandedTranscriptId, setExpandedTranscriptId] = useState<number | null>(null);
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const finalTranscriptRef = useRef<string>("");
+
+    // Speech recognition hook
+    const {
+        transcript,
+        listening,
+        resetTranscript,
+        browserSupportsSpeechRecognition,
+    } = useSpeechRecognition();
 
     // Load existing attachments when noteId changes
     useEffect(() => {
@@ -37,6 +48,13 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
         }
     }, [noteId]);
 
+    // Update final transcript ref while recording
+    useEffect(() => {
+        if (isRecording && transcript) {
+            finalTranscriptRef.current = transcript;
+        }
+    }, [transcript, isRecording]);
+
     // Cleanup on unmount
     useEffect(() => {
         return () => {
@@ -45,6 +63,7 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
                 audioRef.current.pause();
                 audioRef.current = null;
             }
+            SpeechRecognition.stopListening();
         };
     }, []);
 
@@ -58,6 +77,15 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
 
     const startRecording = async () => {
         try {
+            // Reset transcript
+            resetTranscript();
+            finalTranscriptRef.current = "";
+
+            // Start speech recognition
+            if (browserSupportsSpeechRecognition) {
+                SpeechRecognition.startListening({ continuous: true, interimResults: true });
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
             mediaRecorderRef.current = mediaRecorder;
@@ -72,7 +100,12 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
             mediaRecorder.onstop = async () => {
                 stream.getTracks().forEach((track) => track.stop());
                 const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-                await saveRecording(blob);
+
+                // Stop speech recognition and capture final transcript
+                SpeechRecognition.stopListening();
+                const transcriptText = finalTranscriptRef.current.trim();
+
+                await saveRecording(blob, transcriptText);
             };
 
             mediaRecorder.start();
@@ -99,7 +132,7 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
         }
     };
 
-    const saveRecording = async (blob: Blob) => {
+    const saveRecording = async (blob: Blob, transcriptText: string) => {
         if (!noteId) {
             alert("Please save the note before adding audio recordings.");
             return;
@@ -118,12 +151,14 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
                     noteId,
                     base64,
                     "audio/webm",
-                    recordingTime
+                    recordingTime,
+                    transcriptText || null
                 );
 
                 if (result.success) {
                     await loadAttachments();
                     onRecordingComplete?.();
+                    resetTranscript();
                 } else {
                     alert("Failed to save recording");
                 }
@@ -189,6 +224,10 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
         return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
+    const toggleTranscript = (attachmentId: number) => {
+        setExpandedTranscriptId(expandedTranscriptId === attachmentId ? null : attachmentId);
+    };
+
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -204,6 +243,10 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
                         Saving...
                     </span>
                 )}
+
+                {!browserSupportsSpeechRecognition && (
+                    <span className="text-xs text-amber-500">(Transcription not supported in this browser)</span>
+                )}
             </div>
 
             {/* Record button */}
@@ -212,8 +255,8 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
                     onClick={isRecording ? stopRecording : startRecording}
                     disabled={!noteId || isSaving}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isRecording
-                            ? "bg-red-500 text-white hover:bg-red-600"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                        ? "bg-red-500 text-white hover:bg-red-600"
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/90"
                         }`}
                 >
                     {isRecording ? (
@@ -235,45 +278,76 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
                         Recording...
                     </span>
                 )}
+
+                {listening && (
+                    <span className="text-xs text-green-500">🎤 Transcribing...</span>
+                )}
             </div>
+
+            {/* Live transcript during recording */}
+            {isRecording && transcript && (
+                <div className="p-3 bg-accent/30 rounded-md border border-border">
+                    <div className="text-xs text-muted-foreground mb-1">Live Transcript:</div>
+                    <div className="text-sm whitespace-pre-wrap">{transcript}</div>
+                </div>
+            )}
 
             {/* Attachments list */}
             {attachments.length > 0 && (
                 <div className="space-y-2">
                     {attachments.map((attachment) => (
-                        <div
-                            key={attachment.id}
-                            className="flex items-center justify-between p-2 bg-accent/50 rounded-md"
-                        >
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => playAudio(attachment.id)}
-                                    className="p-1.5 hover:bg-accent rounded transition-colors"
-                                    disabled={loadingAudioId === attachment.id}
-                                >
-                                    {loadingAudioId === attachment.id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : playingId === attachment.id ? (
-                                        <Pause className="w-4 h-4" />
-                                    ) : (
-                                        <Play className="w-4 h-4" />
+                        <div key={attachment.id} className="bg-accent/50 rounded-md overflow-hidden">
+                            <div className="flex items-center justify-between p-2">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => playAudio(attachment.id)}
+                                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                                        disabled={loadingAudioId === attachment.id}
+                                    >
+                                        {loadingAudioId === attachment.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : playingId === attachment.id ? (
+                                            <Pause className="w-4 h-4" />
+                                        ) : (
+                                            <Play className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                    <span className="text-sm">
+                                        {attachment.duration_seconds
+                                            ? formatTime(Math.round(attachment.duration_seconds))
+                                            : "Audio"}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                        {new Date(attachment.created_at).toLocaleTimeString()}
+                                    </span>
+                                    {attachment.transcript && (
+                                        <button
+                                            onClick={() => toggleTranscript(attachment.id)}
+                                            className="p-1 hover:bg-accent rounded transition-colors text-muted-foreground"
+                                            title="Toggle transcript"
+                                        >
+                                            {expandedTranscriptId === attachment.id ? (
+                                                <ChevronUp className="w-3 h-3" />
+                                            ) : (
+                                                <ChevronDown className="w-3 h-3" />
+                                            )}
+                                        </button>
                                     )}
+                                </div>
+                                <button
+                                    onClick={() => handleDelete(attachment.id)}
+                                    className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-accent rounded transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
-                                <span className="text-sm">
-                                    {attachment.duration_seconds
-                                        ? formatTime(Math.round(attachment.duration_seconds))
-                                        : "Audio"}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                    {new Date(attachment.created_at).toLocaleTimeString()}
-                                </span>
                             </div>
-                            <button
-                                onClick={() => handleDelete(attachment.id)}
-                                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-accent rounded transition-colors"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
+                            {/* Expanded transcript */}
+                            {expandedTranscriptId === attachment.id && attachment.transcript && (
+                                <div className="px-3 pb-3 pt-1 border-t border-border/50">
+                                    <div className="text-xs text-muted-foreground mb-1">Transcript:</div>
+                                    <div className="text-sm whitespace-pre-wrap">{attachment.transcript}</div>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
