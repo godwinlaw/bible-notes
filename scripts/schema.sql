@@ -44,3 +44,17 @@ CREATE TABLE IF NOT EXISTS audio_attachments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audio_attachments_note_id ON audio_attachments(note_id);
+
+-- Attachments table (stores generic file attachments linked to notes)
+CREATE TABLE IF NOT EXISTS attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id INTEGER NOT NULL,
+    filename TEXT NOT NULL,
+    original_filename TEXT NOT NULL,
+    mime_type TEXT,
+    size INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachments_note_id ON attachments(note_id);

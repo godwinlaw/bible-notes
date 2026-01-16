@@ -279,3 +279,111 @@ export async function deleteAudioAttachment(attachmentId: number) {
         return { success: false, error: 'Failed to delete audio attachment' };
     }
 }
+// Generic file attachment actions
+export interface Attachment {
+    id: number;
+    note_id: number;
+    filename: string;
+    original_filename: string;
+    mime_type: string;
+    size: number;
+    created_at: string;
+}
+
+export async function saveAttachment(noteId: number, formData: FormData) {
+    try {
+        const file = formData.get('file') as File;
+        if (!file) {
+            return { success: false, error: 'No file provided' };
+        }
+
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const originalFilename = file.name;
+        const mimeType = file.type || 'application/octet-stream';
+        const size = file.size;
+
+        // Generate a safe unique filename
+        const timestamp = Date.now();
+        const safeOriginal = slugify(originalFilename) || 'attachment';
+        // Preserve extension
+        const ext = path.extname(originalFilename);
+        const nameWithoutExt = path.basename(safeOriginal, ext);
+        const filename = `${nameWithoutExt}-${timestamp}${ext}`;
+
+        // Directory: notes/attachments/<note_id>
+        const attachmentsDir = path.join(process.cwd(), 'notes', 'attachments', String(noteId));
+        await mkdir(attachmentsDir, { recursive: true });
+
+        const filePath = path.join(attachmentsDir, filename);
+        await writeFile(filePath, buffer);
+
+        const result = db.prepare(
+            'INSERT INTO attachments (note_id, filename, original_filename, mime_type, size) VALUES (?, ?, ?, ?, ?)'
+        ).run(noteId, filename, originalFilename, mimeType, size);
+
+        return { success: true, attachmentId: result.lastInsertRowid as number };
+    } catch (error) {
+        console.error('Failed to save attachment:', error);
+        return { success: false, error: 'Failed to save attachment' };
+    }
+}
+
+export async function getAttachments(noteId: number) {
+    try {
+        const attachments = db.prepare(
+            'SELECT * FROM attachments WHERE note_id = ? ORDER BY created_at DESC'
+        ).all(noteId) as Attachment[];
+
+        return { success: true, attachments };
+    } catch (error) {
+        console.error('Failed to get attachments:', error);
+        return { success: false, error: 'Failed to get attachments' };
+    }
+}
+
+export async function deleteAttachment(attachmentId: number) {
+    try {
+        const attachment = db.prepare('SELECT note_id, filename FROM attachments WHERE id = ?').get(attachmentId) as { note_id: number; filename: string } | undefined;
+
+        if (attachment) {
+            const filePath = path.join(process.cwd(), 'notes', 'attachments', String(attachment.note_id), attachment.filename);
+            try {
+                await unlink(filePath);
+            } catch (e) {
+                console.warn('File not found for deletion:', filePath);
+            }
+        }
+
+        db.prepare('DELETE FROM attachments WHERE id = ?').run(attachmentId);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to delete attachment:', error);
+        return { success: false, error: 'Failed to delete attachment' };
+    }
+}
+
+export async function getAttachmentContent(attachmentId: number) {
+    try {
+        const attachment = db.prepare(
+            'SELECT note_id, filename, mime_type, original_filename FROM attachments WHERE id = ?'
+        ).get(attachmentId) as { note_id: number; filename: string; mime_type: string; original_filename: string } | undefined;
+
+        if (!attachment) {
+            return { success: false, error: 'Attachment not found' };
+        }
+
+        const filePath = path.join(process.cwd(), 'notes', 'attachments', String(attachment.note_id), attachment.filename);
+        const buffer = await readFile(filePath);
+        const base64 = buffer.toString('base64');
+
+        return {
+            success: true,
+            data: base64,
+            mimeType: attachment.mime_type,
+            filename: attachment.original_filename
+        };
+    } catch (error) {
+        console.error('Failed to get attachment content:', error);
+        return { success: false, error: 'Failed to get attachment content' };
+    }
+}

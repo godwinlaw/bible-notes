@@ -3,6 +3,8 @@
 import { formatVerseReference, formatChapterReference, formatVerseRangeReference } from "@/lib/book-abbreviations";
 import { useLayoutContext } from "./LayoutContext";
 import { Backlinks } from "./Backlinks";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Backlink {
     id: number;
@@ -19,7 +21,8 @@ interface BibleViewerProps {
 }
 
 export function BibleViewer({ book, chapter, verses, backlinks }: BibleViewerProps) {
-    const { appendVerseReference, isNotePanelOpen, openNotePanel, loadNote } = useLayoutContext();
+    const { appendVerseReference, isNotePanelOpen, openNotePanel, loadNote, canGoBack, canGoForward } = useLayoutContext();
+    const router = useRouter();
 
     const handleVerseClick = (verseNumber: number) => {
         const reference = formatVerseReference(book, chapter, verseNumber);
@@ -109,7 +112,22 @@ export function BibleViewer({ book, chapter, verses, backlinks }: BibleViewerPro
                     {book} {chapter}
                 </h2>
                 <div className="flex gap-2">
-                    {/* Navigation placeholders - can be implemented fully later */}
+                    <button
+                        onClick={() => router.back()}
+                        disabled={!canGoBack}
+                        className="p-2 rounded-md hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Go back"
+                    >
+                        <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                        onClick={() => router.forward()}
+                        disabled={!canGoForward}
+                        className="p-2 rounded-md hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Go forward"
+                    >
+                        <ChevronRight className="h-5 w-5" />
+                    </button>
                 </div>
             </div>
 

@@ -39,7 +39,7 @@ export function Backlinks({ backlinks, onBacklinkClick }: BacklinksProps) {
                                     {backlink.title}
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-0.5">
-                                    {formatDistanceToNow(new Date(backlink.createdAt), { addSuffix: true })}
+                                    {formatDistanceToNow(new Date(backlink.createdAt.replace(' ', 'T') + 'Z'), { addSuffix: true })}
                                 </div>
                             </div>
                         </div>

@@ -1,12 +1,13 @@
 "use client";
 
-import { X, Save, FileUp, ChevronDown, User, Check, Calendar, ArrowLeft } from "lucide-react";
+import { X, Save, FileUp, ChevronDown, ChevronRight, User, Check, Calendar, ArrowLeft } from "lucide-react";
 import { useState, useTransition, useEffect, useRef } from "react";
 import { saveNote, getPreachers, exportNoteToPath } from "@/lib/actions";
 import { useLayoutContext } from "./LayoutContext";
 import { exportToObsidian } from "@/lib/obsidian";
 import { NoteList } from "./NoteList";
 import { AudioRecorder } from "./AudioRecorder";
+import { AttachmentList } from "./AttachmentList";
 
 interface NotePanelProps {
     isOpen: boolean;
@@ -29,6 +30,7 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
     // Dropdown states
     const [isEventOpen, setIsEventOpen] = useState(false);
     const [isPreacherOpen, setIsPreacherOpen] = useState(false);
+    const [isToolsOpen, setIsToolsOpen] = useState(false);
 
     const eventRef = useRef<HTMLDivElement>(null);
     const preacherRef = useRef<HTMLDivElement>(null);
@@ -297,9 +299,37 @@ export function NotePanel({ isOpen, onClose }: NotePanelProps) {
                             placeholder="Start typing your note..."
                         />
 
-                        {/* Audio Recordings Section */}
-                        <div className="border-t border-border pt-4">
-                            <AudioRecorder noteId={loadedNoteId} />
+                        {/* Collapsible Tools Section */}
+                        <div className="border-t border-border mt-2">
+                            <button
+                                onClick={() => setIsToolsOpen(!isToolsOpen)}
+                                className="w-full flex items-center justify-between py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <span className="flex items-center gap-2">
+                                    {(loadedNoteId || true) && (
+                                        <>
+                                            {isToolsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                            Attachments & Recordings
+                                        </>
+                                    )}
+                                </span>
+                            </button>
+
+                            {isToolsOpen && (
+                                <div className="space-y-4 pb-4">
+                                    {/* Audio Recordings Section */}
+                                    <div className="pt-2">
+                                        <AudioRecorder noteId={loadedNoteId} />
+                                    </div>
+
+                                    {/* Attachments Section */}
+                                    {loadedNoteId && (
+                                        <div className="border-t border-border pt-4">
+                                            <AttachmentList noteId={loadedNoteId} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </>

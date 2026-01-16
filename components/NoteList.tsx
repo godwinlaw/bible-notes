@@ -85,7 +85,7 @@ export function NoteList() {
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString(undefined, {
+        return new Date(dateString.replace(' ', 'T') + 'Z').toLocaleDateString(undefined, {
             month: 'short',
             day: 'numeric',
             year: 'numeric'

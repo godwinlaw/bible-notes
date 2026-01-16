@@ -318,7 +318,7 @@ export function AudioRecorder({ noteId, onRecordingComplete }: AudioRecorderProp
                                             : "Audio"}
                                     </span>
                                     <span className="text-xs text-muted-foreground">
-                                        {new Date(attachment.created_at).toLocaleTimeString()}
+                                        {new Date(attachment.created_at.replace(' ', 'T') + 'Z').toLocaleTimeString()}
                                     </span>
                                     {attachment.transcript && (
                                         <button

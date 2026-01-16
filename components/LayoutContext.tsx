@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { loadNote as loadNoteAction } from '@/lib/actions';
 import { generateNoteTitle, getDefaultEvent } from '@/lib/note-utils';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -38,6 +39,8 @@ interface LayoutContextType {
     notePanelWidth: number;
     setNotePanelWidth: (width: number) => void;
     setNotePanelView: (view: 'list' | 'editor') => void;
+    canGoBack: boolean; // [NEW]
+    canGoForward: boolean; // [NEW]
 }
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
@@ -56,6 +59,52 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     const [localExportPath, setLocalExportPathState] = useState(""); // [NEW]
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [notePanelWidth, setNotePanelWidth] = useState(33); // Percentage
+
+    // Navigation history tracking
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const [history, setHistory] = useState<string[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(-1);
+    const isNavigatingRef = useRef(false);
+
+    useEffect(() => {
+        const fullPath = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
+
+        if (isNavigatingRef.current) {
+            isNavigatingRef.current = false;
+            return;
+        }
+
+        setHistory(prev => {
+            // If it's the same as the current index in history, we might be going back/forward
+            if (currentIndex !== -1 && prev[currentIndex] === fullPath) {
+                return prev;
+            }
+
+            // Check if we're moving back/forward via browser buttons
+            const backIndex = currentIndex - 1;
+            const forwardIndex = currentIndex + 1;
+
+            if (backIndex >= 0 && prev[backIndex] === fullPath) {
+                setCurrentIndex(backIndex);
+                return prev;
+            }
+
+            if (forwardIndex < prev.length && prev[forwardIndex] === fullPath) {
+                setCurrentIndex(forwardIndex);
+                return prev;
+            }
+
+            // Otherwise, it's a new navigation
+            const newHistory = prev.slice(0, currentIndex + 1);
+            newHistory.push(fullPath);
+            setCurrentIndex(newHistory.length - 1);
+            return newHistory;
+        });
+    }, [pathname, searchParams]);
+
+    const canGoBack = currentIndex > 0;
+    const canGoForward = currentIndex < history.length - 1;
 
     const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
     const setSidebarOpen = (isOpen: boolean) => setIsSidebarOpen(isOpen);
@@ -216,7 +265,9 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             notePanelWidth,
             setNotePanelWidth,
             notePanelView,
-            setNotePanelView
+            setNotePanelView,
+            canGoBack,
+            canGoForward
         }}>
             {children}
         </LayoutContext.Provider>
