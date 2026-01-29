@@ -1,5 +1,6 @@
 "use client";
 
+import React, { Suspense } from "react";
 import { LayoutProvider, useLayoutContext } from "@/components/LayoutContext";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
@@ -43,8 +44,10 @@ function MainLayoutContent({
 
 export function MainLayout(props: { children: React.ReactNode; sidebar: React.ReactNode }) {
     return (
-        <LayoutProvider>
-            <MainLayoutContent {...props} />
-        </LayoutProvider>
+        <Suspense fallback={null}>
+            <LayoutProvider>
+                <MainLayoutContent {...props} />
+            </LayoutProvider>
+        </Suspense>
     );
 }

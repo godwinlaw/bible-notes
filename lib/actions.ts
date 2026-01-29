@@ -26,6 +26,23 @@ export async function getPreachers() {
     }
 }
 
+
+function getUniqueFilename(baseSlug: string, excludeId?: number): string {
+    let filename = `${baseSlug}.md`;
+    let counter = 1;
+
+    while (true) {
+        const existing = db.prepare('SELECT id FROM notes WHERE filename = ?').get(filename) as { id: number } | undefined;
+
+        if (!existing || (excludeId && existing.id === excludeId)) {
+            return filename;
+        }
+
+        filename = `${baseSlug}-${counter}.md`;
+        counter++;
+    }
+}
+
 export async function saveNote(note: { title: string; content: string; id?: number; event?: string; preacher?: string }) {
     try {
         const notesDir = path.join(process.cwd(), 'notes');
@@ -35,8 +52,20 @@ export async function saveNote(note: { title: string; content: string; id?: numb
 
         // Generate filename from title
         const slug = slugify(note.title) || `note-${Date.now()}`;
-        const filename = `${slug}.md`;
+        const filename = getUniqueFilename(slug, note.id);
         const filePath = path.join(notesDir, filename);
+
+        // Delete old file if renaming (only for existing notes)
+        if (note.id) {
+            const oldNote = db.prepare('SELECT filename FROM notes WHERE id = ?').get(note.id) as { filename: string } | undefined;
+            if (oldNote && oldNote.filename !== filename) {
+                try {
+                    await unlink(path.join(notesDir, oldNote.filename));
+                } catch (e) {
+                    console.warn('Failed to delete old file during rename:', e);
+                }
+            }
+        }
 
         // Create markdown content with title as H1
         const markdownContent = `# ${note.title}\n\n${note.content}`;
